@@ -16,8 +16,8 @@ import Mathlib.Algebra.Group.Subgroup.Basic
 import Mathlib.Tactic.FinCases
 import Mathlib.Tactic.Eval
 import Mathlib.Data.Set.Card
-open Polynomial List Nat Sylow Fintype Setoid
-
+open Polynomial List Nat Sylow Fintype Setoid Classical
+-- 被迫导入 Classical 是因为给出 Sylow 子群的元素个数使用了与 Classical 有关的 instance
 variable {G : Type} [Group G] [Fintype G] {p: ℕ}
 
 theorem only_sylow_subgroup_is_normal  [Fact (Nat.Prime p)] : (card (Sylow p G) = 1) -> ∀ (H : Sylow p G), (↑H: Subgroup G).Normal := by
@@ -159,25 +159,173 @@ def get_partition_by_func  (f: α → β) : partition_by_func f :=
       rw [h1]
 }
 
+
 def partition_by_func_is_partion  (f: α → β) : IsPartition ((get_partition_by_func f).classes)  := (get_partition_by_func f).is_classes ▸ Setoid.isPartition_classes (get_partition_by_func f).equivalance_relation
 
-noncomputable instance [Fintype α] (s: Set α) : Fintype s := by
-  have : Set.Finite s := by
-    toFinite_tac
-  have : Finite s := Set.Finite.to_subtype this
-  exact @Fintype.ofFinite s this
-
-
-theorem card_eq_sum_card_of_partition [Fintype α] (classes: Set (Set α)) (is_p : IsPartition classes) : card α = (∑ i ∈  classes, Finset.card (i.toFinset)) := by
+theorem card_eq_sum_card_of_partition [Fintype α]  (classes: Set (Set α)) (is_p : IsPartition classes) : card α = (∑ i ∈  classes, Finset.card (i.toFinset)) := by
   sorry
 
-theorem card_eq_card_of_partition_by_func [Fintype α] {α β: Type} (f: α → β) : card α = (∑ i ∈  (get_partition_by_func f).classes, Finset.card (i.toFinset)) := by
+theorem card_eq_card_of_partition_by_func {α β: Type} [Fintype α]  (f: α → β) : card α = (∑ i ∈  {s | ∃i: β ,  s = {a: α | f a = i}}, Finset.card (i.toFinset)) := by
+  sorry
+
+theorem card_eq_card_of_partition_by_func_fin {α β: Type} [Fintype α] [Fintype β] (f: α → β): card α = (∑ i: β, Finset.card ({a: α | f a = i}.toFinset)) := by
+  sorry
 
 theorem divide_group_into_elements_by_order (orders: Finset ℕ) (factor: ∀i ∈ orders, i ∣ card G) : card G ≤ ∑ i in orders, card {a: G | orderOf a = i} := by
   -- have : (@Finset.univ G) =  (⋃ i: ℕ,  {a: G | orderOf a = i})  := by
   --   sorry
   let partition_by_order := get_partition_by_func (λ a: G => orderOf a)
-  let is_partition := partition_by_order.is_partition
+  -- let is_partition := partition_by_order.is_partition
+  sorry
+
+lemma exactly_dvd_fac_eq_one (n: ℕ)(p: ℕ) [is_prime: Fact (Nat.Prime p)] (non_zero: n ≠ 0)(dvd: p ∣ n) (exactly_dvd: ¬ p^2 ∣ n) : n.factorization p = 1 := by
+  have fac_more_than_one := (Nat.Prime.dvd_iff_one_le_factorization (is_prime.out) non_zero).mp
+  have fac_less_than_one :  (n).factorization p ≤ 1 := by
+    by_contra h
+    have : p^2 ∣ n := by
+      simp at h
+      apply (Nat.Prime.pow_dvd_iff_le_factorization (is_prime.out) _).mpr
+      apply h
+      exact non_zero
+    exact absurd this exactly_dvd
+  exact Eq.symm (Nat.le_antisymm (fac_more_than_one dvd) fac_less_than_one)
+
+theorem card_of_sylow_p_group_when_p_exactly_divide_card_of_G (p: ℕ) [is_prime: Fact (Nat.Prime p)] (dvd: p ∣ card G) (exactly_dvd: ¬ p^2 ∣ card G) (G_p : Sylow p G) : card G_p  = p := by
+  let sylow_group_card := card_eq_multiplicity G_p
+  have card_ne_zero : card G ≠ 0 := by
+    exact Fintype.card_ne_zero
+  have : (card G).factorization p = 1 := exactly_dvd_fac_eq_one (card G) p card_ne_zero dvd exactly_dvd
+  rw [this] at sylow_group_card
+  simp only [pow_one] at sylow_group_card
+  exact sylow_group_card
+
+theorem number_of_p_order_ele_in_p_group (p: ℕ) [is_prime: Fact (Nat.Prime p)] (group_ord: card G = p) : card {a: G | orderOf a = p} = p - 1 := by
+  let PossibleOrder: Type := ↑({1, p}: Set ℕ).toFinset
+  let orderOf' : G → PossibleOrder := λ a => if h: orderOf a = 1 then ⟨1, by simp [h]⟩ else
+    ⟨p, by
+      simp only [Set.toFinset_insert, Set.toFinset_singleton, Finset.mem_insert,
+        Finset.mem_singleton, or_true]
+    ⟩
+  have order_eq  (x : G) : orderOf x = ↑(orderOf' x) := by
+    unfold_let
+    simp
+    by_cases h: x = 1
+    · simp [h]
+    · simp [h]
+      have : orderOf x ∣ p := by
+        rw [<-group_ord]
+        exact orderOf_dvd_card
+      let t' := (@Nat.dvd_prime p (orderOf x) (is_prime.out)).mp this
+      rcases t' with (h1 | h1)
+      · have : x = 1 := by
+          let h := pow_orderOf_eq_one x
+          rw [h1] at h
+          rw [pow_one] at h
+          exact h
+        exact absurd this h
+      · exact h1
+  let t := card_eq_card_of_partition_by_func_fin (λ a: G => orderOf' a)
+  simp at t
+  have : ∑ x : PossibleOrder, (Finset.filter (fun x_1 ↦ orderOf' x_1 = x) Finset.univ).card = ∑ x : PossibleOrder, (Finset.filter (fun (x_1: G) ↦ orderOf ↑x_1 = x) Finset.univ).card := by
+    have : ∀ x: PossibleOrder, Finset.filter (fun x_1 ↦ orderOf x_1 = ↑x) Finset.univ = Finset.filter (fun (x_1: G) ↦ orderOf' x_1 = x) Finset.univ:= by
+      intro x
+      apply Finset.filter_congr
+      intro x_1 h
+      rw [order_eq]
+      exact Subtype.coe_inj
+    apply Finset.sum_congr
+    · rfl
+    · intro x h
+      apply Finset.card_bij (fun x _ => x) _ (by simp only [Finset.mem_filter, Finset.mem_univ,
+        true_and, imp_self, implies_true])
+      ·
+        intro a h1
+        use a
+        rw [this x] at h1
+        use h1
+      · intro a ha
+        simp
+        rw [order_eq]
+        simp only [Finset.mem_filter, Finset.mem_univ, true_and] at ha
+        exact Subtype.coe_inj.mpr ha
+
+
+  rw [this] at t
+  unfold_let at t
+  rw [Finset.sum_set_coe] at t
+
+
+
+theorem numbers_of_elements_with_order_p_when_exactly_dvd (p: ℕ) [is_prime: Fact (Nat.Prime p)] (dvd: p ∣ card G) (exactly_dvd: ¬ p^2 ∣ card G)
+: card {a: G | orderOf a = p} = (p - 1) * (card (Sylow p G)) := by
+  let generated_group_has_order_p (a: {a: G | orderOf a = p}) : card (Subgroup.zpowers (a: G)) = p ^ (card G).factorization p := by
+    rw [exactly_dvd_fac_eq_one (card G) p Fintype.card_ne_zero dvd exactly_dvd]
+    rw [pow_one]
+    let ⟨a', ha⟩ := a
+    simp only [Set.mem_setOf_eq]
+    rw [Fintype.card_zpowers]
+    rw [Set.mem_setOf_eq] at ha
+    exact ha
+  let generated_sylow_group_of_elements : {a: G | orderOf a = p} -> Sylow p G := fun a => Sylow.ofCard (Subgroup.zpowers (a: G)) (generated_group_has_order_p a)
+  have a_in_generated_group : ∀ a: {a: G | orderOf a = p}, (a: G) ∈ generated_sylow_group_of_elements a := by
+    intro a
+    have : generated_sylow_group_of_elements a = Sylow.ofCard (Subgroup.zpowers (a : G)) (generated_group_has_order_p a) := by rfl
+    rw [this]
+    -- let ⟨a', ha⟩ := a
+    -- simp only [Set.mem_setOf_eq]
+    let mem := coe_ofCard (Subgroup.zpowers (a : G)) (generated_group_has_order_p a)
+    apply SetLike.mem_coe.mp
+    have : ↑(ofCard (Subgroup.zpowers (a : G)) (generated_group_has_order_p a)) = ((Subgroup.zpowers (a : G)) : Set G) := by rfl
+    rw [this]
+    apply SetLike.mem_coe.mpr
+    simp only [Set.mem_setOf_eq, Subgroup.mem_zpowers]
+  let partition := card_eq_card_of_partition_by_func generated_sylow_group_of_elements
+  let sylow_group_to_order_p_subset (s: Sylow p G) : Finset G := ({a: s | orderOf a = p}.toFinset.image (λ (a : s) => (a: G)))
+  have sylow_group_to_order_p_subset_card : ∀ s: Sylow p G, (sylow_group_to_order_p_subset s).card = p - 1 := by
+    intro s
+    have : (sylow_group_to_order_p_subset s) = ({a: s | orderOf a = p}.toFinset.image (λ (a : s) => (a: G))) := by
+      rfl
+    rw [this]
+    have : Function.Injective (fun (a : s) => (a: G)) := by
+      exact Subtype.val_injective
+    rw [Finset.card_image_of_injective {a | orderOf a = p}.toFinset this]
+    sorry
+
+
+
+
+
+  have : ∀h: (Sylow p G), {a: {a: G | orderOf a = p} | generated_sylow_group_of_elements a = h}.toFinset.card = p - 1 := by
+    intro h
+    simp
+    sorry
+  have : ∀i: Set ↑{a | orderOf a = p}, i ∈ {s | ∃ i, s = {a | generated_sylow_group_of_elements a = i}}.toFinset -> i.toFinset.card = p - 1 := by
+    intro h
+    simp
+    intro x h1
+    rw [h1]
+    let t := this x
+    simp only [Set.coe_setOf, Set.mem_setOf_eq, Set.toFinset_setOf] at t
+    congr
+  have : ∑ i ∈ {s | ∃ i, s = {a | generated_sylow_group_of_elements a = i}}.toFinset, i.toFinset.card = (p - 1) * card (Sylow p G) := by
+    have : ({s | ∃ i, s = {a | generated_sylow_group_of_elements a = i}}.toFinset.sum (fun i => i.toFinset.card))
+        = ({s | ∃ i, s = {a | generated_sylow_group_of_elements a = i}}.toFinset.sum (fun i => p - 1)) := by
+        apply Finset.sum_congr
+        · rfl
+        · exact this
+    rw [this]
+    simp only [Set.coe_setOf, Set.mem_setOf_eq, Set.toFinset_setOf, Finset.sum_const, smul_eq_mul]
+
+    have : Finset.filter (fun x ↦ ∃ i, x = {a | generated_sylow_group_of_elements a = i}) Finset.univ := by
+      sorry
+    sorry
+        --apply @Finset.sum_congr _ _  {s | ∃ i, s = {a | generated_sylow_group_of_elements a = i}}.toFinset {s | ∃ i, s = {a | generated_sylow_group_of_elements a = i}}.toFinset
+  sorry
+
+
+
+
+-- theorem number_of_elements_of_order_p_when_p_exactly_divide_card_of_G (p: ℕ) [Fact (Nat.Prime p)] (dvd: p ∣ card G) (exactly_dvd: )
 
 theorem not_simple_132 {G : Type} [Group G] [Fintype G] (h : card G = 132) : ¬ IsSimpleGroup G := by
   by_contra cp
@@ -185,19 +333,20 @@ theorem not_simple_132 {G : Type} [Group G] [Fintype G] (h : card G = 132) : ¬ 
   have : Fact (Nat.Prime 11) := by norm_num; apply fact_iff.mpr; simp only
   let pn11 := card_sylow_modEq_one 11 G
   let any_11_sylow_group : Sylow 11 G := default
-  let sylow_group_card := card_eq_multiplicity any_11_sylow_group
-  rw [h] at sylow_group_card
-  simp at sylow_group_card
-  have cal : 11 ^ ((Nat.factorization 132) 11) = 11 := by
-    have : Nat.factorization 132 11 = 1 := by
-      have : 132 = 11 * 12 := by norm_num
-      rw [this]
-      rw [@factorization_eq_of_coprime_left 11 11 12 (by norm_num)]
-      rw [@Prime.factorization_self 11 (by norm_num)]
-      norm_num
-    rw [this]
-    rw [pow_one]
-  rw [cal] at sylow_group_card
+  -- let sylow_group_card := card_eq_multiplicity any_11_sylow_group
+  -- rw [h] at sylow_group_card
+  -- simp at sylow_group_card
+  -- have cal : 11 ^ ((Nat.factorization 132) 11) = 11 := by
+  --   have : Nat.factorization 132 11 = 1 := by
+  --     have : 132 = 11 * 12 := by norm_num
+  --     rw [this]
+  --     rw [@factorization_eq_of_coprime_left 11 11 12 (by norm_num)]
+  --     rw [@Prime.factorization_self 11 (by norm_num)]
+  --     norm_num
+  --   rw [this]
+  --   rw [pow_one]
+  -- rw [cal] at sylow_group_card
+  let sylow_group_card := card_of_sylow_p_group_when_p_exactly_divide_card_of_G 11 (by rw [h]; norm_num)  (by rw [h]; norm_num) any_11_sylow_group
   have : n11 ∈ ({1, 12}: Finset ℕ) := by
     have is_prime_11 : Fact (Nat.Prime 11) := by norm_num; apply fact_iff.mpr; simp only
     let _res  := get_possible_sylow_groups_card 11 12 (by rw [h]) (by norm_num)
@@ -241,11 +390,6 @@ theorem not_simple_132 {G : Type} [Group G] [Fintype G] (h : card G = 132) : ¬ 
         sorry
       let r := has_only_sylow_group_not_simple h2 (by rw [h];norm_num) (by rw [h]; exact this )
       exact r cp
-    · let sylow_groud_card3 (g: Sylow 3 G) := card_eq_multiplicity g
-      rw [h] at sylow_groud_card3
-      simp at sylow_groud_card3
-      have : 3 ^ (Nat.factorization 132) 3 = 3 := by
-        sorry
-      rw [this] at sylow_groud_card3
+    · let sylow_groud_card3 := card_of_sylow_p_group_when_p_exactly_divide_card_of_G 3 (by rw [h]; norm_num) (by rw [h]; norm_num)
       sorry
     sorry
