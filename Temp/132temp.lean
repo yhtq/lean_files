@@ -93,8 +93,6 @@ theorem finite_subgroups_have_order_and_same_card_is_eq (a b: Subgroup G) (card_
     exact card_eq
   rw [<-this]
 
-
-
 structure possible_sylow_groups_card  (p: ℕ)  [Fact (Nat.Prime p)] (q: ℕ) (factor: card G = p * q) (coprime: Coprime p q) where
   possible_set : Finset ℕ
   possible_set_def : possible_set = Finset.filter (λ x => x ≡ 1 [MOD p] ∧  x ∣ q) (Finset.range (q + 1) \ {0})
@@ -306,10 +304,6 @@ theorem number_of_p_order_ele_in_p_group (p: ℕ) [is_prime: Fact (Nat.Prime p)]
   simp only [Set.mem_setOf_eq, Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, true_and,
     Set.coe_setOf, add_tsub_cancel_left]
 
-
-
-
-
 theorem numbers_of_elements_with_order_p_when_exactly_dvd (p: ℕ) [is_prime: Fact (Nat.Prime p)] (dvd: p ∣ card G) (exactly_dvd: ¬ p^2 ∣ card G)
 : card {a: G | orderOf a = p} = (p - 1) * (card (Sylow p G)) := by
   let a_subgroup (a: G) := Subgroup.zpowers (a: G)
@@ -342,7 +336,6 @@ theorem numbers_of_elements_with_order_p_when_exactly_dvd (p: ℕ) [is_prime: Fa
     let r':= number_of_p_order_ele_in_p_group p (card_of_sylow_p_group_when_p_exactly_divide_card_of_G p dvd exactly_dvd s)
     rw [Fintype.card_coe] at r'
     exact r'
-
 
   have all_elements_are_generated (h: Sylow p G) (a : {a: G | orderOf a = p}) (in_h : (a: G) ∈ h) : generated_sylow_group_of_elements a = h := by
     have sub : (a_subgroup a) ≤ h := by
@@ -428,8 +421,6 @@ lemma order_of_ele_in_p_group_is_pow_of_p {p: ℕ} [is_prime: Fact (Nat.Prime p)
   ·
     exact hk'
 
-
-
 theorem numbers_of_p_group_divide_into_orders {n: ℕ} {p: ℕ} [is_prime: Fact (Nat.Prime p)] (is_p_group: card G = p^n): p^n = ∑ i ∈ Finset.range (n+1), card {a: G | orderOf a = p^i} := by
   set func: G -> ℕ := orderOf with h_func
   set p_power: ℕ -> ℕ := λ i => p^i with h_p_power
@@ -473,8 +464,6 @@ theorem numbers_of_p_group_divide_into_orders {n: ℕ} {p: ℕ} [is_prime: Fact 
   · intro _ _
     simp only [Set.mem_setOf_eq, Set.toFinset_setOf]
 
-
-
 theorem have_exactly_numbers_of_elements_with_order_p_n_then_unique (p : ℕ) [is_prime: Fact (Nat.Prime p)]  :∑ i ∈ Finset.range (Nat.factorization (card G) p+1), card {a: G | orderOf a = p^i} ≤ p ^ (Nat.factorization (card G) p) -> card (Sylow p G) = 1 := by
   intro h_c
   by_contra h'
@@ -498,7 +487,6 @@ theorem have_exactly_numbers_of_elements_with_order_p_n_then_unique (p : ℕ) [i
       simp only [not_forall] at p
       rcases p with ⟨a, p⟩
       let ha := h a
-      let _ := h' a
       let p' := Classical.not_iff.mp p
       let hap := p'.mpr ∘ ha
       simp only [imp_not_self] at hap
@@ -549,18 +537,6 @@ theorem have_exactly_numbers_of_elements_with_order_p_n_then_unique (p : ℕ) [i
       exact absurd h_a_1 hay
     rw [card_on_x_eq_card_on_G k k_in_sum_set] at this
     exact Nat.lt_irrefl (card {a: G | orderOf a = p ^ k}) this
-
-
-
-
-
-
-
-
-      -- have : x = y := by
-      --   apply SetLike.ext
-      --   apply?
-
 
 theorem not_simple_132 {G : Type} [Group G] [Fintype G] (h : card G = 132) : ¬ IsSimpleGroup G := by
   by_contra cp

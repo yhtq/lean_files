@@ -149,12 +149,19 @@ def polynomial_from_list {R : Type*} [Nontrivial R] [Semiring R] (l : List R)(no
 def temp : ([1, 1, 1] : List ℤ) = ([1, 2-1, 1] : List ℤ) :=
   by
     congr
-notation  "F2" => ZMod 2
-variable [DecidableEq R][Nontrivial R] [CommRing R]
-structure PolynomialList  (R : Type*) [Nontrivial R] [CommRing R] where
+
+#help tactic
+
+
+structure PolynomialList (R: Type)  [DecidableEq R] [Nontrivial R] [CommRing R]  where
   mk ::
   coeffs : List R
   non_zero : (p : coeffs  ≠ []) -> coeffs.getLast p ≠ 0
+
+#check Subtype.ext
+
+variable {R: Type} [DecidableEq R] [Nontrivial R] [CommRing R]
+theorem polynomial_congr {p1 p2 : PolynomialList R}  : p1 = p2 := sorry
 def drop_trailing_zeros  (l : List R) : List R :=
   reverse $ dropWhile (fun x => x == 0) (reverse l)
 def valid_coeff (l: List R) := (p: l ≠ []) → l.getLast p ≠ 0
@@ -215,38 +222,42 @@ theorem drop_trailing_zeros_last_non_zero  (l : List R) : valid_coeff (drop_trai
     refine lemma1 l.reverse ?non_empty
     by_contra h
     rw [h] at p
-    have : 0 = 1:=
-      by compute_degree
     exact p rfl
 
 
 
-def poly_add {R : Type*} [Nontrivial R] [CommRing R] (a b : PolynomialList R) : PolynomialList R :=
-  let ⟨a', pa⟩ := a
-  let ⟨b', pb⟩ := b
-  match a', b' with
-    | [], b'' => ⟨b'', by apply pb⟩
-    | a'', [] => ⟨a'', by apply pa⟩
+def poly_add_non_dropping_zeros  (a b : List R) : List R :=
+  match a, b with
+    | [], _ => b
+    | _, [] => a
     | a::as, b::bs =>
-      let pa' : (a :: as).getLast (by simp) ≠ 0 := by
-        apply pa
-      let pb' : (b :: bs).getLast (by simp) ≠ 0 := by
-        apply pb
-      let ⟨rest, p_rest⟩ := poly_add ⟨ as, by intro h; rw [getLast_cons h] at pa'; exact pa' ⟩ ⟨bs, by intro h; rw [getLast_cons h] at pb'; exact pb'⟩
-      ⟨(a + b) :: rest, match rest with
-        | [] => by
-          simp
+      (a + b) :: (poly_add_non_dropping_zeros as bs)
 
-        ⟩
-theorem poly_add_nil {R : Type*} [Nontrivial R] [CommRing R] (a : PolynomialList R) : poly_add a [] = a := by
-  cases a
-  · rfl
-  · simp [poly_add]
-theorem poly_nil_add {R : Type*} [Nontrivial R] [CommRing R] (a : PolynomialList R) : poly_add [] a = a := by
-  cases a
-  · rfl
-  · simp [poly_add]
-theorem poly_add_comm {R : Type*} [Nontrivial R] [CommRing R] (a b : PolynomialList R) : poly_add a b = poly_add b a := by
+-- def fmap2 {A B C : Type u} (f: Type u -> Type v) {F: Functor f}:  (A -> B -> C) -> f A -> f B -> f C := by
+--   intro g
+--   intro a
+--   intro b
+--   exact Functor.map₂ g a  b8
+
+-- def funtor_succ : (List Nat) -> List Nat := List.map Nat.succ
+-- def funtor_add_one : (List Nat) -> List Nat := List.map (fun x => x + 1)
+-- def test := Functor.Liftp Nat.add_one [1, 2, 3]
+
+-- def poly_add_non_dropping_zeros'  {R : Type*} [Nontrivial R] [CommRing R] (a b : List R) : List R := (List.map (fun x => a + x))  b
+theorem poly_nil_add  (a : List R) : poly_add_non_dropping_zeros [] a = a := by
+  unfold poly_add_non_dropping_zeros
+  simp only
+
+theorem poly_add_nil  (a : List R) : poly_add_non_dropping_zeros a [] = a := by
+  unfold poly_add_non_dropping_zeros
+  by_cases h: a = []
+  · rw [h]
+  · simp only
+
+
+
+
+theorem poly_add_comm  (a b : List R) : poly_add_non_dropping_zeros a b = poly_add_non_dropping_zeros b a := by
   match a, b with
   | [], [] => rfl
   | [], _ =>
@@ -256,17 +267,20 @@ theorem poly_add_comm {R : Type*} [Nontrivial R] [CommRing R] (a b : PolynomialL
     rw [poly_nil_add]
     rw [poly_add_nil]
   | a::as, b::bs =>
-    simp [poly_add]
     apply cons_eq_cons.mpr
     apply And.intro
     · exact add_comm a b
     · exact poly_add_comm as bs
 
-instance temp1 {R : Type*} [Nontrivial R] [CommRing R] : CommRing (PolynomialList R) where
-  add := poly_add
-  zero := []
+instance temp1 : CommRing (PolynomialList R) where
+  add a b := ⟨drop_trailing_zeros  (poly_add_non_dropping_zeros a.coeffs b.coeffs), drop_trailing_zeros_last_non_zero _⟩
+  zero := {coeffs := [], non_zero := by simp only [ne_eq, not_true_eq_false, IsEmpty.forall_iff]}
   add_zero := by
     intro a
-    exact poly_add_nil a
+    simp only
+    unfold HAdd.hAdd
+    unfold instHAdd
+    simp only
+    congr
   neg := List.map Neg.neg
   add_comm := poly_add_comm
