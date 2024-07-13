@@ -141,3 +141,8 @@ import Mathlib.Data.Fintype.Card
         simp only [Fin.isValue]
         apply Set.toFinset_inj.mp -- 如果没有用这个将 Set 转换为 Finset，将是无法使用 decide 完成证明的
         decide
+@[ext]
+structure point where
+  x: ℕ
+  y: ℕ
+  h: 2 ∣ x + y
