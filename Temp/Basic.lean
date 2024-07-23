@@ -10,6 +10,11 @@ import Init.Data.Nat.Basic
 import Mathlib.Algebra.Ring.Defs
 open Polynomial List Nat
 
+
+open Pointwise
+
+def Group.product_equiv_of_disjoint {G : Type*} [Group G] (H K : Subgroup G) (h : H.carrier ∩ K.carrier = {1}) : (H * K : Set G) ≃ H × K := sorry
+
 noncomputable def construct_polynomial_from_list {R : Type*} [Nontrivial R] [Semiring R] (l : List R): Polynomial R :=
   match l with
   | [] => 0

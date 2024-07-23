@@ -15,8 +15,7 @@ import Mathlib.Data.Set.Card
 open Polynomial List Nat Sylow Fintype Setoid Classical
 -- 被迫导入 Classical 是因为给出 Sylow 子群的元素个数使用了与 Classical 有关的 instance
 variable {G : Type} [Group G] [Fintype G]
-
-theorem only_sylow_subgroup_is_normal  {p: ℕ} [Fact (Nat.Prime p)] : (card (Sylow p G) = 1) -> ∀ (H : Sylow p G), (↑H: Subgroup G).Normal := by
+theorem only_sylow_subgroup_is_normal  {p: ℕ} [Fact (Nat.Prime p)] : (card (Sylow p G) = 1) -> ∀ (H : Sylow p G), (H: Subgroup G).Normal := by
   intro h
   intro H
   have h2 := card_sylow_eq_card_quotient_normalizer H
@@ -24,7 +23,7 @@ theorem only_sylow_subgroup_is_normal  {p: ℕ} [Fact (Nat.Prime p)] : (card (Sy
   have : (H: Subgroup G).normalizer = ⊤ := by
     have : Nat.card ((H: Subgroup G).normalizer) = Nat.card G := by
       rw [<-card_eq_fintype_card] at h2
-      rw [Subgroup.card_eq_card_quotient_mul_card_subgroup ((↑H: Subgroup G).normalizer: Subgroup G)]
+      rw [Subgroup.card_eq_card_quotient_mul_card_subgroup ((H: Subgroup G).normalizer: Subgroup G)]
       rw [<-h2]
       simp
     apply Subgroup.eq_top_of_card_eq _ this
@@ -417,8 +416,8 @@ theorem numbers_of_p_group_divide_into_orders {n: ℕ} {p: ℕ} [is_prime: Fact 
     unfold_let
     aesop
   · intro _ _
-    simp only [Set.mem_setOf_eq, Set.toFinset_setOf]
-
+    -- simp
+    rfl
 theorem have_exactly_numbers_of_elements_with_order_p_n_then_unique (p : ℕ) [is_prime: Fact (Nat.Prime p)]  :∑ i ∈ Finset.range (Nat.factorization (card G) p+1), card {a: G | orderOf a = p^i} ≤ p ^ (Nat.factorization (card G) p) -> card (Sylow p G) = 1 := by
   intro h_c
   by_contra h'
@@ -459,7 +458,7 @@ theorem have_exactly_numbers_of_elements_with_order_p_n_then_unique (p : ℕ) [i
     have f_inj_is_inj (i: ℕ) : Function.Injective (f_inj_i i) := by
       intro x y hx
       unfold_let at hx
-      simp only [Set.coe_setOf, Set.mem_setOf_eq, Subtype.mk.injEq, SetLike.coe_eq_coe] at hx
+      simp at hx
       exact Subtype.coe_inj.mp hx
     have card_on_x_lt_card_on_G : ∀i ∈ sum_set, card {a: y | orderOf a = p ^ i} ≤ card {a: G | orderOf a = p ^ i} := fun i _ => Fintype.card_le_of_injective (f_inj_i i) (f_inj_is_inj i)
     have : ∑ i ∈ sum_set, card {a: y | orderOf a = p ^ i} ≤ ∑ i ∈ sum_set, card {a: G | orderOf a = p ^ i} := GCongr.sum_le_sum card_on_x_lt_card_on_G
@@ -473,7 +472,7 @@ theorem have_exactly_numbers_of_elements_with_order_p_n_then_unique (p : ℕ) [i
       simp only [Finset.mem_range]
       exact hk
     have : card {a: y | orderOf a = p ^ k} < card {a: G | orderOf a = p ^ k} := by
-      apply @Fintype.card_lt_of_injective_of_not_mem _ _ _ _ (f_inj_i k) (f_inj_is_inj k) ⟨a, by simp only [Set.mem_setOf_eq]; exact hk'⟩
+      apply @Fintype.card_lt_of_injective_of_not_mem _ _ _ _ (f_inj_i k) (f_inj_is_inj k) ⟨a, by simp; exact hk'⟩
       by_contra h_r
       simp at h_r
       rcases h_r with ⟨a1, h_r'⟩
@@ -547,10 +546,10 @@ theorem not_simple_132 {G : Type} [Group G] [Fintype G] (h : card G = 132) : ¬ 
         native_decide
       rw [this] at r
       simp at r
-      have :  card (Sylow 2 G) = 1 := by
+      have : card (Sylow 2 G) = 1 := by
         apply r
         have : Finset.range 3 = {0, 1, 2} := by
-          decide
+          rfl
         rw [this]
         simpa
       have non_power : ∀n: ℕ , 132 ≠ 2 ^n := by
@@ -565,3 +564,6 @@ theorem not_simple_132 {G : Type} [Group G] [Fintype G] (h : card G = 132) : ¬ 
       rw [order_3, order_11, h] at all_elements_counts
       simp at all_elements_counts
 #print axioms not_simple_132
+
+-- example {F : Type*} [Field F] [Fintype F] [IsAlgClosed F] : False := by
+--   let f: F[X] := ∏ i : F, (X - C i)
