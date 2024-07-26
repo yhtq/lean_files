@@ -1,162 +1,135 @@
+/-  --Special Ex 070401
+Let M and N be normal subgroups of the group G.
+If M ∩ N = 1, then for any a ∈  M and b ∈ N, we have ab = ba.
+-/
 import Mathlib.Tactic
+import Mathlib.Data.Complex.Basic
+open Subgroup Complex
 
-section E_1685
--- open scoped Classical
--- open Subgroup
+variable {θ : ℝ}
+lemma I_pow (n: Nat) : I ^ n = match n % 4 with
+  | 0 => 1
+  | 1 => I
+  | 2 => -1
+  | 3 => -I
+  | _ => 1
+  := by
+        have : n = 4 * (n / 4) + n % 4 := Eq.symm (Nat.div_add_mod n 4)
+        nth_rw 1 [this]
+        rw [pow_add, pow_mul, I_pow_four]
+        simp
+        have : n % 4 < 4 := Nat.mod_lt n (by norm_num)
+        have : n % 4 ∈ ({0, 1, 2, 3}: Finset ℕ) := by show n % 4 ∈ Finset.range 4; simp [this]
+        simp at this
+        rcases this with h | h | h | h <;> rw [h] <;> norm_num
+        rw [((by norm_num): 3 = 1 + 2)]
+        rw [pow_add]
+        simp
 
-example : Prop -> Prop := by sorry
-example (x: Nat): PProd Nat (x > 1) := sorry
-example : (x: Nat) ×' (x > 1) := by sorry
-
-lemma nzpow_mul.{u_1} {α : Type u_1} [DivisionMonoid α] (a : α) (m: ℕ): ∀ n : ℤ, a ^ (m * n) = (a ^ m) ^ n
--- we can calcular and rewrite by using this lemma more easily
-  | (n : ℕ) => by
-    simp only [zpow_natCast]
-    rw [(pow_mul a m n).symm]
-    rw [←zpow_natCast]
-    simp only [Nat.cast_mul]
-  | .negSucc n => by
-    simp only [Int.ofNat_mul_negSucc, Nat.succ_eq_add_one, Nat.cast_mul, Nat.cast_add, Nat.cast_one,
-      zpow_neg, zpow_negSucc, inv_inj]
-    rw [(pow_mul a m (n+1)).symm]
-    rw [←zpow_natCast]
-    simp only [Nat.cast_mul, Nat.cast_add, Nat.cast_one]
-
-example {G: Type*} [Group G](H K : Subgroup G) (g : G) (m n : ℕ )(hpos: 0 < m * n )(hord : orderOf g = m * n )(hcyc :  ∀ (x : G), x ∈ zpowers g) (hmn : Nat.Coprime m n)
-: G ≃* (zpowers (g ^ m) × zpowers (g ^ n)) where
--- 1. In order to prove that $G\cong \left \langle a^{m}  \right \rangle \times \left \langle a^{n}  \right \rangle$ , we can define an isomorphism between them.
-  toFun := by
-   intro x
-   let k := Classical.choose (Subgroup.mem_zpowers_iff.mp (hcyc x))
-   let s := Nat.gcdA m n
-   let t := Nat.gcdB m n
-   --2. Thanks to the Bezout, we can get that $\exist \ s\  t, s \times m + t \times n =1$
-   --, so, for$\ \forall g \in G, g=g^1=g^{s \times m + t \times n}= g^{s \times m} \times g^{t \times n}$.
-   --we can find $g^{s \times m} \in \left \langle a^{m}  \right \rangle, g^{t \times n} \in \left \langle a^{n}  \right \rangle $,
-   --which can turn into an isomorphism between them.
-   constructor
-   · use x ^ (m * s)
-     apply Subgroup.mem_zpowers_iff.mpr
-     use k * s
-     calc
-       _= g ^ (m * k * s):=by rw[mul_assoc,nzpow_mul g m (k * s) ]
-       _= (g ^ k)^ (m * s):= by
-         nth_rw 2 [mul_comm]
-         rw[mul_assoc,zpow_mul g k (m * s)]
-       _= _ := by rw[ Classical.choose_spec (Subgroup.mem_zpowers_iff.mp (hcyc x))]
-
-   · use x ^ (n * t)
-     apply Subgroup.mem_zpowers_iff.mpr
-     use k * t
-     calc
-       _= g ^ (n * k * t):=by rw[mul_assoc,nzpow_mul g n (k * t) ]
-       _= (g ^ k)^ (n * t):= by
-         nth_rw 2 [mul_comm]
-         rw[mul_assoc,zpow_mul g k (n * t)]
-       _= _ := by rw[ Classical.choose_spec (Subgroup.mem_zpowers_iff.mp (hcyc x))]
--- 3. We can easily find a inv_fun by $(a, b)\longmapsto ab$
-  invFun := by
-    intro ⟨xh, xk⟩
-    use xh * xk
+example  : Real.cos (3 * θ) = 4 * (Real.cos θ) ^ 3 - 3 * Real.cos θ := by
+  --By Euler's formula, it follows that $e^{i θ}=cos θ+i sin θ$
+--   have theta : _ := Complex.exp_mul_I θ
+  have (x: ℝ) : Real.cos x = ((cexp (x * I) + cexp (- x * I))/2).re := by
+        have : - (x: ℂ) = ↑(-x) := by simp
+        --rw [this]
+        rw [Complex.exp_mul_I x, Complex.exp_mul_I (-x)]
+        simp
+        rw [cos_ofReal_re]
+  have im_zero (x: ℝ) : ((cexp (x * I) + cexp (- x * I))/2).im = 0 := by
+        have : - (x: ℂ) = ↑(-x) := by simp
+        --rw [this]
+        rw [Complex.exp_mul_I x, Complex.exp_mul_I (-x)]
+        simp
+  have re_pow (c: ℂ) (n: ℕ): c.im = 0 -> (c^n).re = (c.re)^n := by
+    intro h
+    have : c = c.re := Complex.ext rfl h
+    nth_rw 1 [this]
+    rw [<-ofReal_pow, ofReal_re]
+  repeat rw [this]
+  rw [<-re_pow _ _ (im_zero θ)]
+  repeat rw [<-re_ofReal_mul]
+  rw [<-sub_re]
+  apply congr_arg
+  field_simp
+  ring_nf
+  repeat rw [<-exp_nat_mul]
+  push_cast
+  rw [mul_comm 3, mul_neg 3, mul_comm 3, <-exp_add, <-exp_add]
+  ring_nf
 
 
---4. We should verify the left_inv
-  left_inv := by
-    intro x
-    let s := Nat.gcdA m n
-    let t := Nat.gcdB m n
-    show x ^ (m * s) * x ^ (n * t) = x
-    rw[← zpow_add]
-    have : m * s + n * t = 1 :=by
-      unfold Nat.Coprime at hmn
-      show m * (Nat.gcdA m n) + n *(Nat.gcdB m n)= 1
-      rw[← Nat.gcd_eq_gcd_ab m n]
-      rw[hmn]
-      simp only [Nat.cast_one]
-    rw[this, zpow_one]
---5. We should verify the right_inv
-  right_inv := by
-    intro x
-    let s := Nat.gcdA m n
-    let t := Nat.gcdB m n
-    let hk := x.1.val * x.2.val
-    let pnh := Classical.choose (Subgroup.mem_zpowers_iff.mp x.1.property)
-    let pnk := Classical.choose (Subgroup.mem_zpowers_iff.mp x.2.property)
-    let qph := Classical.choose_spec (Subgroup.mem_zpowers_iff.mp x.1.property)
-    let qpk := Classical.choose_spec (Subgroup.mem_zpowers_iff.mp x.2.property)
-    have bezout: m * s + n * t = 1 :=by
-      unfold Nat.Coprime at hmn
-      show m * (Nat.gcdA m n) + n *(Nat.gcdB m n)= 1
-      rw[← Nat.gcd_eq_gcd_ab m n]
-      rw[hmn]
-      simp only [Nat.cast_one]
-    have bezout1 : m * s = 1 - n * t :=by
-      rw[← bezout]
-      ring_nf
-    have bezout2 : n * t = 1 - m * s :=by
-      rw[← bezout]
-      ring_nf
-    rw[orderOf_eq_iff hpos] at hord
-    rcases hord with ⟨hgn, __⟩
-    have nh : hk ^ (m * s)= x.1 :=by
-      rw [← qph]
-      show (x.1.val * x.2.val) ^ (m * s) = (g ^ m) ^ pnh
-      rw [← qph,← qpk]
-      show ((g ^ m) ^ pnh * (g ^ n) ^ pnk) ^ (m * s) = (g ^ m) ^ pnh
-      calc
-       _= g ^ (m * pnh * (m * s)) * g ^ (n * m *(pnk * s)) :=by
-         rw [← nzpow_mul,← nzpow_mul,← zpow_add,← zpow_add,← zpow_mul]
-         ring_nf
-       _= g ^ (m * pnh)* g ^ (m * n *(pnk * s - pnh * t)) :=by
-         rw [bezout1, ←zpow_add, ← zpow_add]
-         ring_nf
-       _=_ := by
-         nth_rw 2 [zpow_mul]
-         rw [pow_mul,← zpow_natCast, ←zpow_natCast, ←zpow_mul]at hgn
-         rw[hgn, one_zpow, mul_one, nzpow_mul]
-    have nk : hk ^ (n * t) = x.2 :=by
-      rw [← qpk]
-      show (x.1.val * x.2.val) ^ (n * t) = (g ^ n) ^ pnk
-      rw [← qph,← qpk]
-      show ((g ^ m) ^ pnh * (g ^ n) ^ pnk) ^ (n * t) = (g ^ n) ^ pnk
-      calc
-       _= g ^ (n * pnk * (n * t)) * g ^ (m * n *(pnh * t)) :=by
-         rw [← nzpow_mul,← nzpow_mul,← zpow_add,← zpow_add,← zpow_mul]
-         ring_nf
-       _= g ^ (n * pnk)* g ^ (n * m *(pnh * t - pnk * s)) :=by
-         rw [bezout2, ←zpow_add, ← zpow_add]
-         ring_nf
-       _=_ := by
-         nth_rw 2 [zpow_mul]
-         rw [pow_mul,← zpow_natCast, ←zpow_natCast, ←zpow_mul,mul_comm]at hgn
-         rw[hgn, one_zpow, mul_one, nzpow_mul]
-    dsimp
-    ext
-    · exact nh
-    · exact nk
-
---6. We should verify the function fit the law in groups
-  map_mul' := by
-   intro x y
-   let s := Nat.gcdA m n
-   let t := Nat.gcdB m n
-   let kx := Classical.choose (Subgroup.mem_zpowers_iff.mp (hcyc x))
-   let ky := Classical.choose (Subgroup.mem_zpowers_iff.mp (hcyc y))
-   let hkx := Classical.choose_spec (Subgroup.mem_zpowers_iff.mp (hcyc x))
-   let hky := Classical.choose_spec (Subgroup.mem_zpowers_iff.mp (hcyc y))
-   have hl : (x * y) ^ (m * s) = x ^ (m * s) * y ^ (m * s) :=by
-     rw[←hkx, ←hky]
-     show (g ^ kx * g ^ ky) ^ (m * s)=(g ^ kx) ^ (m * s) * (g ^ ky) ^ (m * s)
-     rw[← zpow_mul,← zpow_mul,← zpow_add,← zpow_add,← zpow_mul]
-     ring_nf
-   have hr : (x * y) ^ (n * t) = x ^ (n * t) * y ^ (n * t) :=by
-     rw[←hkx, ←hky]
-     show (g ^ kx * g ^ ky) ^ (n * t)=(g ^ kx) ^ (n * t) * (g ^ ky) ^ (n * t)
-     rw[← zpow_mul,← zpow_mul,← zpow_add,← zpow_add,← zpow_mul]
-     ring_nf
-   dsimp
-   ext
-   · exact hl
-   · exact hr
-
-end E_1685
+--   --By calculation, it is found that $e^{i θ}^2= cos^2 θ - i sin^2 θ + 2 i cos θ * sin θ$
+--   have thete_pow_two : (Complex.exp (θ * Complex.I)) ^ 2 = ((Complex.cos θ) ^ 2 - (Complex.sin θ) ^ 2) + 2 * Complex.sin θ * Complex.cos θ * Complex.I  := by
+--     rw [theta, sq]
+--     ring
+--     simp [Complex.I_mul_I]
+--     ring
+--   --By calculation, it is found that $e^{i θ}^3=4 cos^3 θ - 3 cos θ + i (3 sin θ  - 4 sin^3 θ )$
+--   have thete_pow_three : (Complex.exp (θ * Complex.I)) ^ 3 = (4 * Complex.cos θ ^ 3 - 3 * Complex.cos θ) + (3 * Complex.sin θ - 4 * Complex.sin θ ^ 3 ) * Complex.I := by
+--     nth_rw 1 [(by norm_num : 3 = 1 + 2)]
+--     ring
+--     rw [Complex.exp_mul_I]
+--     ring
+--     rw [(by sorry: Complex.I ^3 = Complex.I * Complex.I * Complex.I), (by norm_num: Complex.I ^2 = Complex.I * Complex.I), ]
+-- --
+-- --   calc
+-- --       _ = (Complex.exp (θ * Complex.I)) ^ 1 * (Complex.exp (θ * Complex.I)) ^ 2 := by rw[pow_add]
+-- --       _ = (Complex.cos θ + Complex.sin θ * Complex.I) * (((Complex.cos θ) ^ 2 - (Complex.sin θ) ^ 2) + 2 * Complex.sin θ * Complex.cos θ * Complex.I) := by rw[pow_one, thete_pow_two, theta]
+-- --       _ = (Complex.cos θ) ^ 3 - Complex.cos θ * (Complex.sin θ) ^ 2 + 2 * (Complex.cos θ) ^ 2 * Complex.sin θ *  Complex.I + Complex.sin θ  * (Complex.cos θ) ^ 2 * Complex.I - (Complex.sin θ) ^ 3 * Complex.I + 2 * (Complex.sin θ) ^ 2 * Complex.cos θ * (Complex.I * Complex.I) := by ring
+-- --       _ = (Complex.cos θ) ^ 3 - Complex.cos θ * (Complex.sin θ) ^ 2 + 2 * (Complex.cos θ) ^ 2 * Complex.sin θ *  Complex.I + Complex.sin θ  * (Complex.cos θ) ^ 2 * Complex.I - (Complex.sin θ) ^ 3 * Complex.I + 2 * (Complex.sin θ) ^ 2 * Complex.cos θ * (-1) := by rw [Complex.I_mul_I]
+-- --       _ = (Complex.cos θ) ^ 3 - 3 * (Complex.cos θ) * (Complex.sin θ) ^ 2 + Complex.I * (3 * (Complex.cos θ) ^ 2 * (Complex.sin θ) - (Complex.sin θ) ^ 3) := by ring
+-- --       _ = (Complex.cos θ) ^ 3 - 3 * (Complex.cos θ) * (1 - (Complex.cos θ) ^ 2) + Complex.I * (3 * (1 - (Complex.sin θ) ^ 2) * (Complex.sin θ) - (Complex.sin θ) ^ 3) := by nth_rw 1 [Complex.cos_sq' θ, Complex.sin_sq θ]
+-- --       _ = _ := by ring
+--   --By Euler's formula, it follows that $e^{i θ}^3= e^{i 3 θ}=cos 3 θ+i sin 3 θ$
+--   have thete_pow_three' : Complex.exp (↑θ * Complex.I) ^ 3 = Complex.cos (3 * θ) + Complex.sin (3 * θ) * Complex.I := by rw [theta, (Complex.cos_add_sin_mul_I_pow 3 θ)]; rfl
+--   --By $e^{i θ}^3= cos 3 θ+i sin 3 θ$, it follows that $Re(e^{i θ}^3)= cos 3 θ$
+--   have costhree: (Complex.exp (3 * θ * Complex.I)).re = Real.cos (3 * θ) := by
+--     simp [Complex.exp_mul_I, Complex.cos_ofReal_re, Complex.sin_ofReal_im]
+--     have : Complex.cos (3 * θ) = Real.cos (3 * θ) := by simp only [Complex.ofReal_cos,
+--       Complex.ofReal_mul, Complex.ofReal_ofNat]
+--     rw [this]
+--     have : Complex.sin (3 * θ) = Real.sin (3 * θ)  := by simp only [Complex.ofReal_sin,
+--       Complex.ofReal_mul, Complex.ofReal_ofNat]
+--     rw [this]
+--     rw [Complex.ofReal_re, Complex.ofReal_im]
+--     ring
+--   -- Re(cos θ) = cos θ
+--   have c_re: (Complex.cos θ ).re = Real.cos θ  := by rfl
+--   -- Im(cos θ) = 0
+--   have c_im: (Complex.cos θ ).im = 0  := by exact Complex.cos_ofReal_im θ
+--   -- Re(cos θ^2) = cos θ^2
+--   have c2_re: (Complex.cos θ ^ 2 ).re = Real.cos θ ^ 2  := by
+--     nth_rw 1 [(by norm_num : 2 = 1 + 1), pow_add, pow_one, pow_one, Complex.mul_re, c_re, c_re, c_im, c_im]; ring
+--   -- Im(cos θ^2) = 0
+--   have c2_im: (Complex.cos θ ^ 2 ).im = 0  := by
+--     nth_rw 1 [(by norm_num : 2 = 1 + 1), pow_add, pow_one, pow_one, Complex.mul_im, c_re, c_re, c_im, c_im]; ring
+--   -- Re(cos θ^3) = cos θ^3
+--   have c3_re: (Complex.cos θ ^ 3 ).re = Real.cos θ ^ 3  := by
+--     nth_rw 1 [(by norm_num : 3 = 1 + 2), pow_add, pow_one, Complex.mul_re, c_re, c2_re, c_im, c2_im];ring
+--   -- Im(cos θ^3) = 0
+--   have c3_im: (Complex.cos θ ^ 3 ).im = 0  := by
+--     nth_rw 1 [(by norm_num : 3 = 1 + 2), pow_add, pow_one, Complex.mul_im, c_re, c2_re, c_im, c2_im];ring
+--   -- Re(sin θ) = sin θ
+--   have s_re: (Complex.sin θ ).re = Real.sin θ  := by rfl
+--   -- Im(sin θ) = 0
+--   have s_im: (Complex.sin θ ).im = 0  := by exact Complex.sin_ofReal_im θ
+--   -- Re(sin θ^2) = sin θ^2
+--   have s2_re: (Complex.sin θ ^ 2 ).re = Real.sin θ ^ 2  := by
+--     nth_rw 1 [(by norm_num : 2 = 1 + 1), pow_add, pow_one, pow_one, Complex.mul_re, s_re, s_re, s_im, s_im]; ring
+--   -- Im(sin θ^2) = 0
+--   have s2_im: (Complex.sin θ ^ 2 ).im = 0  := by
+--     nth_rw 1 [(by norm_num : 2 = 1 + 1), pow_add, pow_one, pow_one, Complex.mul_im, s_re, s_re, s_im, s_im]; ring
+--   -- Re(sin θ^3) = sin θ^3
+--   have s3_re: (Complex.sin θ ^ 3 ).re = Real.sin θ ^ 3  := by
+--     nth_rw 1 [(by norm_num : 3 = 1 + 2), pow_add, pow_one, Complex.mul_re, s_re, s2_re, s_im, s2_im];ring
+--   -- Im(sin θ^3) = 0
+--   have s3_im: (Complex.sin θ ^ 3 ).im = 0  := by
+--     nth_rw 1 [(by norm_num : 3 = 1 + 2), pow_add, pow_one, Complex.mul_im, s_re, s2_re, s_im, s2_im];ring
+--   --Prove that $Re(e^{i θ}^3)= Re(4 cos^3 θ - 3 cos θ + i (3 sin θ  - 4 sin^3 θ ))=4 cos^3 θ - 3 cos θ$
+--   have costhree': (Complex.exp (3 * θ * Complex.I)).re = 4 * (Real.cos θ) ^ 3 - 3 * Real.cos θ := by
+--     rw [Complex.exp_mul_I  (3 * θ), ← thete_pow_three', thete_pow_three]
+--     -- rw [add_comm, Complex.add_re, Complex.mul_re, Complex.sub_re, Complex.I_re, mul_zero,Complex.sub_im,Complex.mul_im,(by exact rfl : Complex.re 3 = 3),(by exact rfl : Complex.im 3 = 0),s_re,s_im,Complex.mul_im,(by exact rfl : Complex.re 4 = 4),(by exact rfl : Complex.im 4 = 0),s3_re,s3_im,mul_zero,zero_mul,mul_zero,zero_mul,Complex.I_im,mul_one,zero_sub,zero_add,sub_zero,neg_zero,zero_add,Complex.sub_re,Complex.mul_re,c3_re,c3_im,mul_zero,sub_zero,(by exact rfl : Complex.re 4 = 4),Complex.mul_re,c_re,c_im,mul_zero,sub_zero,(by exact rfl : Complex.re 3 = 3)]
+--     simp [add_comm, Complex.add_re, Complex.mul_re, Complex.sub_re, Complex.I_re]
+--   -- Then we know that $cos 3 θ=4 cos^3 θ - 3 cos θ$
+--   rw [costhree] at costhree'
+--   exact costhree'
