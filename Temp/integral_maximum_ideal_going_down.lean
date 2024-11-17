@@ -8,13 +8,16 @@ open Ideal
 variable
     {A B: Type*} [CommRing A] [CommRing B] [Algebra A B] [Nontrivial B]
     [Algebra.IsIntegral A B]
-    (inj: Function.Injective (algebraMap A B))
+    (_: Function.Injective (algebraMap A B))  -- in fact, this condition is not necessary
     (Q: Ideal B) [IsPrime Q]
 -- manually define to have better defEq
 abbrev P_aux : Ideal A := Ideal.comap (algebraMap A B) Q
 
 -- comap of prime ideal is prime, which is a theorem in mathlib
 instance : IsPrime (P_aux Q (A := A)) := inferInstance
+
+-- the Algebra (A / P) (B / Q) is injective, means (A / P) can be seen as a subring of (B / Q)
+instance : NoZeroSMulDivisors (A ⧸ ((P_aux Q (A := A)))) (B ⧸ Q) := inferInstance
 
 -- actually it can be proved by infer_instance, but we here manually prove
 theorem quotient_integral: Algebra.IsIntegral (A ⧸ ((P_aux Q (A := A)))) (B ⧸ Q) := by
