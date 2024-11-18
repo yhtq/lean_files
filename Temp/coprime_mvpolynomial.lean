@@ -373,6 +373,50 @@ theorem coprime_polynomial_polynomial_have_finitely_many_common_roots_1 (L: Type
   apply hom1_lift_unit
   simp [hk]
 
+noncomputable def equiv_mv_to_poly : MvPolynomial (Fin 2) K ≃ₐ[K] Polynomial (Polynomial K) := by
+  let equiv_2_to_1 := MvPolynomial.finSuccEquiv K 1
+  simp at equiv_2_to_1
+  let equiv_1_to_0 := MvPolynomial.finSuccEquiv K 0
+  simp at equiv_1_to_0
+  let equiv_0_to_K := MvPolynomial.isEmptyAlgEquiv K (Fin 0)
+  let equiv_1_to_poly := Polynomial.mapAlgEquiv equiv_0_to_K
+  -- to construct a K-algebra equiv from MvPolynomial (Fin 2) K to Polynomial (Polynomial K))
+  let equiv := (equiv_2_to_1.trans $ Polynomial.mapAlgEquiv equiv_1_to_0).trans $ Polynomial.mapAlgEquiv equiv_1_to_poly
+  exact equiv
+
+lemma equiv_eval (f: MvPolynomial (Fin 2) K): ∀ k: Fin 2 -> K,
+  MvPolynomial.eval k f = Polynomial.eval (k 1) (Polynomial.eval (Polynomial.C $ k 0) (equiv_mv_to_poly (K := K) f)) := by
+    intro k
+    -- destruct k to Fin.cons to use MvPolynomial.eval_eq_eval_mv_eval'
+    have : k = Fin.cons (k 0) (Fin.cons (k 1) (IsEmpty.elim Fin.isEmpty')) := by
+      rw [<-Fin.cons_self_tail k]
+      apply Fin.cons_eq_cons.mpr
+      simp
+      rw [<-Fin.cons_self_tail (Fin.tail k)]
+      apply Fin.cons_eq_cons.mpr
+      simp
+      apply Subsingleton.allEq
+    nth_rw 1 [this]
+    simp [MvPolynomial.eval_eq_eval_mv_eval']
+    -- do some annoying calculation
+    unfold equiv_mv_to_poly
+    simp [eval_eq_eval_mv_eval_ringHom, AlgEquiv.coe_trans, Polynomial.eval_map, Polynomial.eval₂_map]
+    simp [<-Polynomial.coe_mapRingHom, <-Polynomial.coe_eval₂RingHom]
+    have : RingHomClass.toRingHom (MvPolynomial.isEmptyAlgEquiv K (Fin 0)) = MvPolynomial.eval (fun a ↦ Fin.isEmpty'.elim a) := by
+      apply RingHom.ext
+      intro f
+      simp
+      rfl
+    rw [this]
+    -- these terms are useless
+    generalize ((Polynomial.mapRingHom (MvPolynomial.eval fun a => Fin.isEmpty'.elim a)).comp (RingHomClass.toRingHom (MvPolynomial.finSuccEquiv K 0))) = l
+    generalize (MvPolynomial.eval₂ (Polynomial.C.comp MvPolynomial.C)
+  (fun i ↦ Fin.cases Polynomial.X (fun k ↦ Polynomial.C (MvPolynomial.X k)) i) f) = f
+    -- use evalEval to change the eval order
+    rw [Polynomial.coe_eval₂RingHom, <-Polynomial.eval₂_map]
+    rw [Polynomial.eval₂_evalRingHom]
+    simp
+    rw [<-Polynomial.eval_map]
 
 -- 1. Take the resultant of two polynomial:
 --     $$
@@ -393,48 +437,8 @@ theorem coprime_mvPolynomial_have_finitely_many_common_roots
       by_contra if_infinite_common_roots
       -- if the set is finite
       simp [<-Set.not_infinite] at if_infinite_common_roots
-      let equiv_2_to_1 := MvPolynomial.finSuccEquiv K 1
-      simp at equiv_2_to_1
-      let equiv_1_to_0 := MvPolynomial.finSuccEquiv K 0
-      simp at equiv_1_to_0
-      let equiv_0_to_K := MvPolynomial.isEmptyAlgEquiv K (Fin 0)
-      let equiv_1_to_poly := Polynomial.mapAlgEquiv equiv_0_to_K
       -- to construct a K-algebra equiv from MvPolynomial (Fin 2) K to Polynomial (Polynomial K))
-      let equiv := (equiv_2_to_1.trans $ Polynomial.mapAlgEquiv equiv_1_to_0).trans $ Polynomial.mapAlgEquiv equiv_1_to_poly
-      have equiv_eval (f: MvPolynomial (Fin 2) K): ∀ k: Fin 2 -> K,
-        MvPolynomial.eval k f = Polynomial.eval (k 1) (Polynomial.eval (Polynomial.C $ k 0) (equiv f)) := by
-          intro k
-          -- destruct k to Fin.cons to use MvPolynomial.eval_eq_eval_mv_eval'
-          have : k = Fin.cons (k 0) (Fin.cons (k 1) (IsEmpty.elim Fin.isEmpty')) := by
-            rw [<-Fin.cons_self_tail k]
-            apply Fin.cons_eq_cons.mpr
-            simp
-            rw [<-Fin.cons_self_tail (Fin.tail k)]
-            apply Fin.cons_eq_cons.mpr
-            simp
-            apply Subsingleton.allEq
-          nth_rw 1 [this]
-          simp [MvPolynomial.eval_eq_eval_mv_eval']
-          -- do some annoying calculation
-          unfold equiv equiv_2_to_1 equiv_1_to_0 equiv_1_to_poly equiv_0_to_K
-          simp [eval_eq_eval_mv_eval_ringHom, AlgEquiv.coe_trans, Polynomial.eval_map, Polynomial.eval₂_map]
-          simp [<-Polynomial.coe_mapRingHom, <-Polynomial.coe_eval₂RingHom]
-          repeat rw [<-Polynomial.mapRingHom_comp]
-          have : RingHomClass.toRingHom (MvPolynomial.isEmptyAlgEquiv K (Fin 0)) = MvPolynomial.eval (fun a ↦ Fin.isEmpty'.elim a) := by
-            apply RingHom.ext
-            intro f
-            simp
-            rfl
-          rw [this]
-          -- these terms are useless
-          generalize ((Polynomial.mapRingHom (MvPolynomial.eval fun a => Fin.isEmpty'.elim a)).comp (RingHomClass.toRingHom (MvPolynomial.finSuccEquiv K 0))) = l
-          generalize (MvPolynomial.eval₂ (Polynomial.C.comp MvPolynomial.C)
-        (fun i ↦ Fin.cases Polynomial.X (fun k ↦ Polynomial.C (MvPolynomial.X k)) i) f) = f
-          -- use evalEval to change the eval order
-          rw [Polynomial.coe_eval₂RingHom, <-Polynomial.eval₂_map]
-          rw [Polynomial.eval₂_evalRingHom]
-          simp
-          rw [<-Polynomial.eval_map]
+      let equiv := equiv_mv_to_poly (K := K)
       let f' := equiv f
       let g' := equiv g
       -- map Polynomial (Polynomial K) to Polynomial (FractionRing (Polynomial K))
@@ -444,6 +448,85 @@ theorem coprime_mvPolynomial_have_finitely_many_common_roots
       have : Function.Injective inj_to_frac := by apply Polynomial.map_injective; exact NoZeroSMulDivisors.algebraMap_injective (Polynomial K) frac_Kx
       let f'_frac := inj_to_frac f'
       let g'_frac := inj_to_frac g'
+      let algMap := Polynomial.map (Polynomial.mapRingHom (algebraMap K L))
+      have aeval_trans (f: MvPolynomial (Fin 2) K) (k: Fin 2 -> L):
+        MvPolynomial.aeval k f = Polynomial.evalEval (k 1) (k 0) (algMap (equiv f)) := by
+          have : MvPolynomial.aeval k f = MvPolynomial.eval k (MvPolynomial.map (algebraMap K L) f) := by
+            simp
+            rfl
+          rw [this]
+          rw [equiv_eval]
+          simp [Polynomial.evalEval]
+          apply congr_arg
+          apply congr_arg
+          unfold equiv_mv_to_poly
+          unfold algMap equiv equiv_mv_to_poly
+          simp
+          generalize hs1: (fun i => Fin.cases Polynomial.X (fun k => Polynomial.C (MvPolynomial.X k)) i: Fin 2 → Polynomial (MvPolynomial (Fin 1) L)) = s1
+          -- move algebraMap outward with diffculties
+          -- the Fin.cases brought in by finSuccEquiv must be manually handled
+          have s1_pass : s1 =
+            (Polynomial.mapRingHom (MvPolynomial.map (algebraMap K L))) ∘ (
+              (fun i => Fin.cases Polynomial.X (fun k => Polynomial.C (MvPolynomial.X k)) i): Fin 2 → Polynomial (MvPolynomial (Fin 1) K)
+              ) := by
+            rw [<-hs1]
+            ext i n m
+            simp
+            apply congr_arg
+            match i with
+            | 0 => simp [Polynomial.coeff_X]
+            | 1 =>
+              have : (1: Fin 2) = ( ⟨(0: ℕ).succ, by norm_num⟩: Fin 2) := rfl
+              repeat rw [this]
+              repeat rw [Fin.cases_succ']
+              simp [Polynomial.coeff_C]
+              rw [apply_ite (f := (MvPolynomial.map (algebraMap K L)))]
+              simp
+          rw [s1_pass]
+          have commute_C {n: ℕ} : ((Polynomial.C.comp MvPolynomial.C).comp (algebraMap K L): K →+* Polynomial (MvPolynomial (Fin n) L)) =
+            (Polynomial.mapRingHom (MvPolynomial.map (algebraMap K L))).comp (Polynomial.C.comp MvPolynomial.C) := by
+              ext _ _ _
+              simp
+          rw [commute_C]
+          rw [<-MvPolynomial.eval₂_comp_left]
+          rw [Polynomial.coe_mapRingHom]
+          repeat rw [Polynomial.map_map]
+          -- most terms are useless
+          apply congr_fun
+          apply congr_arg
+          apply RingHom.ext
+          intro x
+          simp
+          -- these two steps are almost the same, but a little hard to generalize
+          generalize hsl2: (fun i => Fin.cases Polynomial.X (fun k => Polynomial.C (MvPolynomial.X k)) i: Fin 1 → Polynomial (MvPolynomial (Fin 0) L)) = ls2
+          generalize hsk2: (fun i => Fin.cases Polynomial.X (fun k => Polynomial.C (MvPolynomial.X k)) i: Fin 1 → Polynomial (MvPolynomial (Fin 0) K)) = ks2
+          have ls2_pass : ls2 = (Polynomial.mapRingHom (MvPolynomial.map (algebraMap K L))) ∘ ks2 := by
+            rw [<-hsl2, <-hsk2]
+            funext x
+            match x with
+            | 0 => simp
+          rw [ls2_pass]
+          rw [commute_C]
+          rw [<-MvPolynomial.eval₂_comp_left]
+          rw [Polynomial.coe_mapRingHom]
+          repeat rw [Polynomial.map_map]
+          apply congr_fun
+          apply congr_arg
+          apply RingHom.ext
+          intro x
+          simp
+          nth_rw 2 [show algebraMap K L = (algebraMap K L).comp (RingHom.id K) from rfl]
+          rw [show
+            (
+              fun i => (algebraMap K L) (Fin.isEmpty'.elim i)
+            ) = (algebraMap K L) ∘ (fun (i: Fin 0) => Fin.isEmpty'.elim i) from rfl]
+          rw [<-MvPolynomial.eval₂_comp_left]
+          simp [MvPolynomial.aeval_def]
+          simp [MvPolynomial.eval₂_eq, MvPolynomial.eval_eq]
+          apply Finset.sum_congr rfl
+          intro x _
+          repeat rw [Finset.prod_of_isEmpty]
+
       let roots_x := {x: L | ∃ k: Fin 2 -> L, MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0 ∧ k 1 = x}
       let roots_y := {y: L | ∃ k: Fin 2 -> L, MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0 ∧ k 0 = y}
       -- in fact, we can assume roots_x is infinite, otherwise we just exchange x and y in f and g
@@ -466,6 +549,8 @@ theorem coprime_mvPolynomial_have_finitely_many_common_roots
           intro i
           fin_cases i <;> simp [h.1, h.2]
         contradiction
+      unfold roots_x roots_y at this
+      simp [aeval_trans] at this
       -- then we can get a f'_frac + b g'_frac = 1. Firstly we prove the situation that f, g is Primitive
       -- have : f'.IsPrimitive -> g'.IsPrimitive -> IsCoprime f'_frac g'_frac := by
       --   intro hf' hg'
