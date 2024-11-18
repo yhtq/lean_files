@@ -23,10 +23,22 @@ lemma motive_one (motive: Fin 1 -> Sort u_1) : motive = fun i => if i = 0 then m
   funext i
   fin_cases i <;> simp
 
-variable {K : Type*} [Field K] [DecidableEq K] [DecidableEq (RatFunc K)]
+variable {K : Type*} [Field K]
 
-noncomputable abbrev common_denom  (a: Polynomial (RatFunc K)) :=
-  ((a.coeffs).image (fun x => x.denom)).prod id
+noncomputable def common_denom  (a: Polynomial (RatFunc K)) :=
+  ∏ n ∈ a.support, (a.coeff n).denom
+
+lemma coeff_dvd_common_denom (a: Polynomial (RatFunc K)) (i: ℕ) (hi: i ∈ a.support):
+  (a.coeff i).denom ∣ common_denom a := Finset.dvd_prod_of_mem  _ hi
+
+theorem common_denom_ne_zero {a: Polynomial (RatFunc K)}:
+  common_denom a = 0 -> False := by
+    intro h
+    simp [common_denom] at h
+    rw [Finset.prod_eq_zero_iff] at h
+    let ⟨i, ⟨hi1, hi2⟩⟩ := h
+    have := RatFunc.denom_ne_zero (a.coeff i)
+    contradiction
 
 lemma eval_common_denom_dvd (a: Polynomial (RatFunc K)) (k: K):
   (Polynomial.eval (RatFunc.C k) a).denom ∣ common_denom a := by
@@ -39,28 +51,94 @@ lemma eval_common_denom_dvd (a: Polynomial (RatFunc K)) (k: K):
       · simp [ps_aux]
       · simp [ps_aux]
         intro i s1 hs1 hind
+        -- do some number theory calculation
         simp only [Finset.sum_insert hs1, Finset.prod_insert hs1]
         apply dvd_trans (RatFunc.denom_add_dvd _ _)
-    apply Finset.sum_induction (p := (fun (x: RatFunc K) => x.denom ∣ common_denom a))
-    · intro a1 b1 ha1 hb1
+        apply mul_dvd_mul ?_ hind
+        apply dvd_trans (RatFunc.denom_mul_dvd _ _)
+        rw [show (RatFunc.C k) ^ i = RatFunc.C (k ^ i) from
+          Eq.symm (RingHom.map_pow _ _ _)]
+        rw [RatFunc.denom_C]
+        simp
+    exact this
 
-    -- apply Polynomial.induction_on'  (M := fun b => (b.coeffs ⊆ a.coeffs) -> (Polynomial.eval (RatFunc.C k) b).denom ∣ common_denom a)
-    -- · intro p q hp hq h
-    --   simp
+
+-- a simple lemma to remove the common denominator of a polynomial, but we must do some manually transformation
+lemma eq_common_denom_mul_algebraMap (a: Polynomial (RatFunc K)) :
+  ∃ a': Polynomial (Polynomial K), (Polynomial.C ((algebraMap (Polynomial K) (RatFunc K)) (common_denom a))) * a = (Polynomial.map (algebraMap (Polynomial K) (RatFunc K)) a')  := by
+    let cd' := Polynomial.map (algebraMap K (RatFunc K)) (common_denom a)
+    let f_aux (i: ℕ) : i ∈ a.support -> Polynomial K := fun hi => ((a.coeff i) * ((algebraMap (Polynomial K) (RatFunc K)) (common_denom a))).num
+    have f_aux_non_zero : ∀ i hi, ¬f_aux i hi = 0 := by
+      intro i hi
+      unfold f_aux
+      simp at hi
+      simp [hi]
+      unfold common_denom
+      rw [Finset.prod_eq_zero_iff]
+      simp [RatFunc.denom_ne_zero]
+    have f_aux_eq (i: ℕ) : (h: i ∈ a.support) -> (a.coeff i) * ((algebraMap (Polynomial K) (RatFunc K)) (common_denom a)) = algebraMap (Polynomial K) (RatFunc K) (f_aux i h) := by
+      intro hi
+      letI : DecidableEq K := Classical.decEq K
+      letI : DecidableEq (RatFunc K) := Classical.decEq _
+      unfold f_aux
+      generalize h: (a.coeff i) * ((algebraMap (Polynomial K) (RatFunc K)) (common_denom a)) = coeff'
+      nth_rw 1 [<-RatFunc.num_div_denom coeff']
+      -- if denom = 1, then it equal to its num
+      have : coeff'.denom = 1 := by
+        rw [<-h]
+        rw [<-RatFunc.num_div_denom (a.coeff i)]
+        rw [div_mul_eq_mul_div]
+        rw [<-RingHom.map_mul]
+        rw [RatFunc.denom_div]
+        have : gcd ((a.coeff i).num * common_denom a) (a.coeff i).denom = (a.coeff i).denom := by
+          rw [gcd_eq_right_iff]
+          apply dvd_trans (coeff_dvd_common_denom a i hi)
+          exact dvd_mul_left _ _
+          exact Polynomial.Monic.normalize_eq_self (RatFunc.monic_denom (a.coeff i))
+        rw [this]
+        simp [RatFunc.denom_ne_zero]
+        exact RatFunc.denom_ne_zero _
+      simp [this]
+    use Polynomial.ofFinsupp
+      {
+        support := a.support,
+        toFun := fun i => if hi : (i ∈ a.support) then (f_aux i hi) else 0,
+        mem_support_toFun := by
+          intro i
+          simp
+          constructor <;> intro h
+          · use h; apply f_aux_non_zero
+            simp [h]
+          · exact h.1
+      }
+    -- show every coefficient is equal
+    apply Polynomial.ext
+    intro n
+    rw [Polynomial.coeff_C_mul]
+    simp
+    by_cases h: n ∈ a.support <;> simp [h]
+    · rw [<-f_aux_eq]
+      rw [mul_comm]
+      exact h
+    · apply Or.inr
+      exact Polynomial.not_mem_support_iff.mp h
 
 
-theorem coprime_primitive_polynomial_polynomial_have_finitely_many_common_roots
+-- a weak version of the following theorem
+theorem coprime_polynomial_polynomial_have_finitely_many_common_roots
     (f g: Polynomial (Polynomial K))
     (coprime: IsCoprime (Polynomial.map (algebraMap (Polynomial K) (RatFunc K)) f) (Polynomial.map (algebraMap (Polynomial K) (RatFunc K)) g))
     :
-    {k: Fin 2 -> K | Polynomial.evalEval (k 0) (k 1) f = 0 ∧ Polynomial.evalEval (k 0) (k 1) g = 0}.Finite := by
+    {x: K | ∃ y: K, Polynomial.evalEval x y f = 0 ∧ Polynomial.evalEval x y g = 0}.Finite := by
+      letI : DecidableEq K := Classical.decEq K
+      letI : DecidableEq (RatFunc K) := Classical.decEq _
       by_contra if_infinite_common_roots
       -- if the set is finite
       simp [<-Set.not_infinite] at if_infinite_common_roots
       let ⟨a, ⟨b, hab⟩⟩ := coprime
       -- we will show that common_denoms eval to zero on infinitely many points, then is equal to zero, which is absurd
-      let common_denoms := ((a.coeffs ∪ b.coeffs).image (fun x => x.denom)).prod id
-      have
+      let common_denoms := (common_denom a) * (common_denom b)
+      have eval_common_denoms_zero
         (x: K)
         (h: ∃ y: K, Polynomial.evalEval x y f = 0 ∧ Polynomial.evalEval x y g = 0)
         : Polynomial.eval x common_denoms = 0 := by
@@ -71,6 +149,12 @@ theorem coprime_primitive_polynomial_polynomial_have_finitely_many_common_roots
           apply_fun (RatFunc.eval (RingHom.id _) x) at hab
           simp  at hab
           by_contra eq_zero
+          have mul_algebraMap_donom (f: RatFunc K) (h: Polynomial K) :
+            (f * algebraMap (Polynomial K) (RatFunc K) h).denom ∣ f.denom := by
+              nth_rw 1 [<-RatFunc.num_div_denom f]
+              rw [div_mul_eq_mul_div]
+              rw [<-RingHom.map_mul]
+              exact RatFunc.denom_div_dvd (f.num * h) f.denom
           rw [RatFunc.eval_add, RatFunc.eval_mul, RatFunc.eval_mul] at hab
           have (f: Polynomial (Polynomial K)) :
             RatFunc.eval (RingHom.id K) x ((Polynomial.aeval (RatFunc.C y)) f) = f.evalEval x y :=
@@ -80,23 +164,32 @@ theorem coprime_primitive_polynomial_polynomial_have_finitely_many_common_roots
               simp
               rfl
           -- have mul_aveal_denom (f: RatFunc K) (h: Polynomial (Polynomial))
-          have mul_algebraMap_donom (f: RatFunc K) (h: Polynomial K) :
-            (f * algebraMap (Polynomial K) (RatFunc K) h).denom ∣ f.denom := by
-              nth_rw 1 [<-RatFunc.num_div_denom f]
-              rw [div_mul_eq_mul_div]
-              rw [<-RingHom.map_mul]
-              exact RatFunc.denom_div_dvd (f.num * h) f.denom
           simp [this f, this g, hf, hg] at hab  -- close the goal if denoms eval to nonzero
           all_goals simp [show Polynomial.eval₂ (RingHom.id _) = Polynomial.eval from rfl]
           all_goals rw [show RatFunc.C y = algebraMap (Polynomial K) (RatFunc K) (Polynomial.C y) from rfl]
           all_goals try rw [Polynomial.aeval_algebraMap_apply]
           all_goals simp  -- close the goal of denoms of f and g
           all_goals apply not_imp_not.mpr (Polynomial.eval_eq_zero_of_dvd_of_eval_eq_zero ?_) eq_zero
-          all_goals simp
+          all_goals unfold common_denoms
+          all_goals try apply dvd_trans (eval_common_denom_dvd _ _) <;> simp  -- close the goal without f *
+          all_goals apply  dvd_trans (mul_algebraMap_donom _ _) <;> apply dvd_trans (eval_common_denom_dvd _ _) <;> simp -- close the goal with f *
+      let roots_x := {x: K | ∃ y: K, Polynomial.evalEval x y f = 0 ∧ Polynomial.evalEval x y g = 0}
+      have : {x | common_denoms.IsRoot x}.Infinite := by
+        have : roots_x ⊆ {x | common_denoms.IsRoot x} := by
+          intro x hx
+          simp [roots_x] at hx ⊢
+          exact eval_common_denoms_zero _ hx
+        exact Set.Infinite.mono eval_common_denoms_zero if_infinite_common_roots
+      apply Polynomial.eq_zero_of_infinite_isRoot at this -- then common_denoms = 0
+      simp [common_denoms] at this  -- means common_denom a = 0 or common_denom b = 0
+      exact Or.elim this common_denom_ne_zero common_denom_ne_zero
 
-
-
-
+theorem coprime_ratFunc_of_relPrime (f g: Polynomial (Polynomial K)) (coprime: IsRelPrime f g) : IsCoprime (Polynomial.map (algebraMap (Polynomial K) (RatFunc K)) f) (Polynomial.map (algebraMap (Polynomial K) (RatFunc K)) g) := by
+  letI : DecidableEq K := Classical.decEq K
+  letI : DecidableEq (RatFunc K) := Classical.decEq _
+  rw [<-isRelPrime_iff_isCoprime]
+  intro d hd1 hd2
+  let common_denom := common_denom d
 
 
 -- 1. Take the resultant of two polynomial:
@@ -104,13 +197,17 @@ theorem coprime_primitive_polynomial_polynomial_have_finitely_many_common_roots
 --     R(x_1) = u(x_1, x_2)f(x_1, x_2) + v(x_1, x_2) g(x_1, x_2)
 --     $$
 -- 2. if $f, g$ have infinitely many common roots, then $R(x_1) = 0$, $(k[x_1])[x_2]$ is a integral domain gives that $f, g$ have a common divisor, which is absurd.
--- remark: resultant is not implemented in mathlib yet, so we wiil use coprime on $(k(x_1))[x_2]$ (which can be duduced by some calculation) to get a polynomial close to resultant
+-- remark: resultant is not implemented in mathlib yet, so we wiil use coprime on $(k(x_1))[x_2]$ (which holds if f and g are primitives, but actually we can just take primPart of them) to get a polynomial close to resultant
+-- at the same time, the field extension can cause some trouble because coprime elements could not be coprime in ring extension, but when we consider coprime on $(k(x_1))[x_2]$, field extension keeps coprime.
 theorem coprime_mvPolynomial_have_finitely_many_common_roots
-    -- actually there is a section "Polynomial.Bivariate" in mathlib, but here I manage to use MvPolynomial
+    -- actually there is a section "Polynomial.Bivariate" in mathlib, but here I manage to use MvPolynomial and do a muanual transformation
+    (L: Type*) [Field L] [Algebra K L]
     (f g: MvPolynomial (Fin 2) K)
     (coprime: IsRelPrime f g)  -- notice that IsCoprime in Mathlib is defined as $(a) + (b) = 1$, however the meaning in the exercise is more close to have no common divisor.
     :
-    {k: Fin 2 -> K | MvPolynomial.eval k f = 0 ∧ MvPolynomial.eval k g = 0}.Finite := by
+    {k: Fin 2 -> L | MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0}.Finite := by
+      letI : DecidableEq K := Classical.decEq K
+      letI : DecidableEq (RatFunc K) := Classical.decEq _
       by_contra if_infinite_common_roots
       -- if the set is finite
       simp [<-Set.not_infinite] at if_infinite_common_roots
@@ -306,13 +403,14 @@ theorem coprime_mvPolynomial_have_finitely_many_common_roots
           exact this h
         · exact d_nezero h
         exact EquivLike.injective equiv_aux
-      let roots_x := {x: K | ∃ k: Fin 2 -> K, MvPolynomial.eval k f = 0 ∧ MvPolynomial.eval k g = 0 ∧ k 1 = x}
-      let roots_y := {y: K | ∃ k: Fin 2 -> K, MvPolynomial.eval k f = 0 ∧ MvPolynomial.eval k g = 0 ∧ k 0 = y}
+      let roots_x := {x: L | ∃ k: Fin 2 -> L, MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0 ∧ k 1 = x}
+      let roots_y := {y: L | ∃ k: Fin 2 -> L, MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0 ∧ k 0 = y}
+      -- in fact, we can assume roots_x is infinite, otherwise we just exchange x and y in f and g
       have : roots_x.Infinite ∨ roots_y.Infinite := by
         -- at least one of them is infinite, otherwise f, g only have finitely many common roots
         by_contra h
         simp at h
-        have : {k: Fin 2 -> K | MvPolynomial.eval k f = 0 ∧ MvPolynomial.eval k g = 0} ⊆
+        have : {k: Fin 2 -> L | MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0} ⊆
         Set.pi Set.univ (fun (i: Fin 2) => if i = 0 then roots_y else roots_x)
         := by
           apply subset_trans (Set.subset_pi_eval_image Set.univ _)
@@ -321,12 +419,9 @@ theorem coprime_mvPolynomial_have_finitely_many_common_roots
           unfold roots_x roots_y
           intro i
           fin_cases i <;> simp <;> intro a ha1 ha2 <;> use a <;> simp [ha1, ha2]
-        have : {k: Fin 2 -> K | MvPolynomial.eval k f = 0 ∧ MvPolynomial.eval k g = 0}.Finite := by
+        have : {k: Fin 2 -> L | MvPolynomial.aeval k f = 0 ∧ MvPolynomial.aeval k g = 0}.Finite := by
           apply Set.Finite.subset _ this
           apply Set.Finite.pi
           intro i
           fin_cases i <;> simp [h.1, h.2]
         contradiction
-      -- without loss of generality, we can assume f, g is primitive
-      wlog hfg: f'.IsPrimitive ∧ g'.IsPrimitive
-      · -- otherwise, just take the primitive part of f', g'
