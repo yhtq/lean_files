@@ -47,14 +47,14 @@ noncomputable def p_group_has_a_normal_subgroup_of_index_p
           have : Subsingleton (G ⧸ Subgroup.center G) := not_nontrivial_iff_subsingleton.mp h
           exact Subsingleton.eq_one _
         letI := Group.commGroupOfCenterEqTop this -- G is abliean
-        have := CommGroup.equiv_prod_multiplicative_zmod G  -- use the structure of abliean group
+        have := CommGroup.equiv_prod_multiplicative_zmod_of_finite G  -- use the structure of abliean group
         let ⟨I, ⟨x, ⟨n, h⟩⟩⟩ := this
         let iso := h.2.some
         -- the canonical surjection, with some annoying transformation
         let proj (i: I) : G →* (Multiplicative (ZMod (n i))) := (Pi.evalMonoidHom (fun j => Multiplicative (ZMod (n j))) i).comp iso
         have proj_surjective: ∀ i: I, Function.Surjective (proj i) := by
           intro i
-          unfold_let proj
+          unfold proj
           simp
           intro y
           simp
@@ -132,13 +132,13 @@ noncomputable def p_group_has_a_normal_subgroup_of_index_p
             simp [Multiplicative, Nat.card_zmod]
             exact h.1 i
           have : Nontrivial (G ⧸ H) := by
-            unfold_let H
+            unfold H
             -- becases G ⧸ H is equiv to ZMod (n i), which is nontrivial
             apply Equiv.nontrivial (eq.toEquiv)
           apply has_a_nontrivial_normal_subgroup_deduces_result H
           -- show H ≠ ⊤
           intro h
-          unfold_let H at h
+          unfold H at h
           have := Subgroup.card_eq_card_quotient_mul_card_subgroup (proj_i.ker)
           nth_rw 2 [h] at this
           simp at this

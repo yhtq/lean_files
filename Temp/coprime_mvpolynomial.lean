@@ -1,6 +1,15 @@
 import Mathlib
 
 open Classical
+
+-- 1. Take the resultant of two polynomial:
+--     $$
+--     R(x_1) = u(x_1, x_2)f(x_1, x_2) + v(x_1, x_2) g(x_1, x_2)
+--     $$
+-- 2. if $f, g$ have infinitely many common roots, then $R(x_1) = 0$, $(k[x_1])[x_2]$ is a integral domain gives that $f, g$ have a common divisor, which is absurd.
+-- remark: resultant is not implemented in mathlib yet, so we wiil use coprime on $(k(x_1))[x_2]$ (which holds if f and g are primitives, but actually we can just take primPart of them) to get a polynomial close to resultant
+-- at the same time, the field extension can cause some trouble because coprime elements could not be coprime in ring extension, but when we consider coprime on $(k(x_1))[x_2]$, field extension keeps coprime.
+
 -- a ringHom version of MvPolynomial.eval_eq_eval_mv_eval'
 lemma eval_eq_eval_mv_eval_ringHom
     {R : Type u} [CommSemiring R] {n : ℕ} (s : Fin n → R) (y : R):
@@ -433,13 +442,6 @@ lemma coprime_equiv {L: Type*} [CommRing L] [Algebra K L]
     simp at this
     exact this
 
--- 1. Take the resultant of two polynomial:
---     $$
---     R(x_1) = u(x_1, x_2)f(x_1, x_2) + v(x_1, x_2) g(x_1, x_2)
---     $$
--- 2. if $f, g$ have infinitely many common roots, then $R(x_1) = 0$, $(k[x_1])[x_2]$ is a integral domain gives that $f, g$ have a common divisor, which is absurd.
--- remark: resultant is not implemented in mathlib yet, so we wiil use coprime on $(k(x_1))[x_2]$ (which holds if f and g are primitives, but actually we can just take primPart of them) to get a polynomial close to resultant
--- at the same time, the field extension can cause some trouble because coprime elements could not be coprime in ring extension, but when we consider coprime on $(k(x_1))[x_2]$, field extension keeps coprime.
 theorem coprime_mvPolynomial_have_finitely_many_common_roots
     -- actually there is a section "Polynomial.Bivariate" in mathlib, but here I manage to use MvPolynomial and do a muanual transformation
     (L: Type*) [Field L] [Algebra K L]
