@@ -147,6 +147,66 @@ theorem IsAlgebraic.on_algebra_adjoin_iff_on_field_adjoin {R A : Type*} [Field R
       -- wu use the fact that if K is the fraction field of A, then C is algebraic on A iff C is algebraic on K
       rw [IsFractionRing.comap_isAlgebraic_iff (K := (IntermediateField.adjoin R s))]
 
+def IntermediateField.restrictScalars_algEquiv.{u_1, u_2, u_3} {K : Type u_1} {L : Type u_2} {L' : Type u_3} [Field K] [Field L]
+  [Field L'] [Algebra K L] [Algebra K L'] [Algebra L' L] [IsScalarTower K L' L] {E : IntermediateField L' L} :
+  E ≃ₐ[K] IntermediateField.restrictScalars K E := AlgEquiv.refl
+
+instance Algebra.ofIntermediateFieldAdjoin {F K E : Type*} [Field F] [Field K] [Field E] [Algebra F K] [Algebra K E] [Algebra F E] [IsScalarTower F K E] (T : IntermediateField F K) (t : Set E) :
+  Algebra (IntermediateField.adjoin T t) (IntermediateField.adjoin K t) := RingHom.toAlgebra (
+    let adKt1 : (IntermediateField (↥T) E) := IntermediateField.restrictScalars _ (IntermediateField.adjoin K t)
+    let algHom1 := IntermediateField.inclusion (E := (IntermediateField.adjoin T t)) (F := adKt1) (by
+      unfold adKt1
+      simp
+      exact IntermediateField.subset_adjoin K t
+    )
+    ((IntermediateField.restrictScalars_algEquiv).symm.toAlgHom.comp algHom1)
+  )
+
+
+-- not an instance because timeout
+theorem IsAlgebraic.to_intermediateField_adjoin {F K E : Type*} [Field F] [Field K] [Field E] [Algebra F K] [Algebra K E] [Algebra F E] [IsScalarTower F K E] {T : IntermediateField F K} {t : Set E} [Algebra.IsAlgebraic T K] :
+  Algebra.IsAlgebraic (IntermediateField.adjoin T t) (IntermediateField.adjoin K t) := by
+    -- Take the algebraic closure in (IntermediateField.adjoin K t), it' s easy to show it is a field and contains K, t
+    let closure := integralClosure (IntermediateField.adjoin T t) E
+    let closure1 := Subalgebra.toIntermediateField' closure (by
+      apply IsIntegralClosure.isField (R := IntermediateField.adjoin T t) (B := E) closure
+      exact Semifield.toIsField (IntermediateField.adjoin T t)
+      )
+    have K_subset1 : (Set.range (algebraMap K E) : Set E) ⊆ (closure : Set _) := by
+      rw [Set.range_subset_iff]
+      intro k
+      unfold closure
+      simp
+      rw [mem_integralClosure_iff]
+      rw [<-isAlgebraic_iff_isIntegral]
+      apply IsAlgebraic.tower_top (K := T)
+      rw [isAlgebraic_ringHom_iff_of_comp_eq (f := RingEquiv.refl T) (g := algebraMap K E)]
+      · exact Algebra.IsAlgebraic.isAlgebraic k
+      · exact NoZeroSMulDivisors.algebraMap_injective K E
+      · exact rfl
+    have t_subset : t ⊆ (closure : Set _) := by
+      unfold closure
+      apply subset_trans ?_ (Subalgebra.range_subset _)
+      -- rw [<-IntermediateField.coe_bot]
+      apply subset_trans (IntermediateField.subset_adjoin T t)
+      apply subset_of_eq
+      aesop
+    have adjoin_subset : (IntermediateField.adjoin K t : Set E) ⊆ closure := by
+      -- can't find lemmas to prove it, so we have to use the definition
+      unfold IntermediateField.adjoin
+      simp
+      show (Subfield.closure (Set.range (algebraMap K E) ∪ t) : Set E) ⊆ closure1.toSubfield
+      rw [SetLike.coe_subset_coe]
+      aesop
+    rw [Algebra.isAlgebraic_iff_isIntegral]
+    rw [Algebra.isIntegral_def]
+    intro ⟨e, he⟩
+    letI : IsScalarTower (IntermediateField.adjoin T t) (IntermediateField.adjoin K t) E := by
+      apply IsScalarTower.of_algebraMap_smul
+      aesop
+    rw [<-isIntegral_algebraMap_iff (B := E)]
+    aesop
+    exact NoZeroSMulDivisors.algebraMap_injective (↥(IntermediateField.adjoin K t)) E
 
 
 theorem union_of_basis_is_basis
@@ -185,7 +245,8 @@ theorem union_of_basis_is_basis
     have (p : MvPolynomial I2 (MvPolynomial I1 F)) : (MvPolynomial.aeval (Sum.elim MvPolynomial.X (MvPolynomial.C ∘ s))) (MvPolynomial.iterToSum F I2 I1 p) =  MvPolynomial.map (MvPolynomial.aeval s (R := F)) p := by
       apply MvPolynomial.induction_on p
       · simp [MvPolynomial.aeval_rename]
-        aesop
+        intro a
+        rfl
       · intro p q hp hq
         -- strangely can't find the instance unless manually specify f
         repeat rw [map_add (f := MvPolynomial.iterToSum F I2 I1)]
@@ -204,7 +265,7 @@ theorem union_of_basis_is_basis
       exact hs1
   ·
     -- pay attention that the definition of basis in mathlib is $K$ is algebraic on $F[t]$, rather than on $F(s)$ which the stack project uses, but they are equivalent.
-    -- to show $E$ is algebraic over $F(s, t)$, just use the transitivity of algebraic extension and $K$ is algebraic over $F(t)$, hence $K(s)$ is algebraic over $F(t, s)$, hence $E$ is algebraic over $F(t, s)$.
+    -- to show $E$ is algebraic over $F(s, t)$, just use the transitivity of algebraic extension and $K$ is algebraic over $F(s)$, hence $K(t)$ is algebraic over $F(t, s)$, hence $E$ is algebraic over $F(t, s)$.
     apply IsTranscendenceBasis.isAlgebraic at hs
     apply IsTranscendenceBasis.isAlgebraic at ht
     rw [IsAlgebraic.on_algebra_adjoin_iff_on_field_adjoin] at *
@@ -214,7 +275,52 @@ theorem union_of_basis_is_basis
       unfold basis_union
       aesop
     rw [this]
-    rw [<-IntermediateField.adjoin_adjoin_left, IntermediateField.adjoin_adjoin_comm]
-    letI : Algebra (IntermediateField.adjoin F (Set.range basis_union)) (IntermediateField.adjoin K (Set.range t)) := by
-      apply IntermediateField.algebra'
-    apply Algebra.IsAlgebraic.trans (L := (IntermediateField.adjoin K (Set.range t)))
+    haveI : Algebra.IsAlgebraic (IntermediateField.adjoin (IntermediateField.adjoin F (Set.range s)) (Set.range t)) (IntermediateField.adjoin K (Set.range t)) := IsAlgebraic.to_intermediateField_adjoin
+    rw [<-IntermediateField.adjoin_adjoin_left, IntermediateField.adjoin_adjoin_comm, <-IsScalarTower.coe_toAlgHom' F K E, <-IntermediateField.adjoin_map]
+    rw [IntermediateField.restrictScalars_adjoin_of_algEquiv (IntermediateField.equivMap ((IntermediateField.adjoin F (Set.range s))) ((IsScalarTower.toAlgHom F K E))).symm]
+    letI alg_ins : Algebra (IntermediateField.restrictScalars F
+        (IntermediateField.adjoin ((IntermediateField.adjoin F (Set.range s))) (Set.range t))) (IntermediateField.adjoin K (Set.range t)) := RingHom.toAlgebra  (by
+      apply RingHom.comp ?_ IntermediateField.restrictScalars_algEquiv.symm.toRingHom
+      apply algebraMap
+      -- ext x
+      -- simp
+      -- generalize h : ((IntermediateField.adjoin F (Set.range s)).equivMap (IsScalarTower.toAlgHom F K E)).symm x = y
+      -- have : x = ((IntermediateField.adjoin F (Set.range s)).equivMap (IsScalarTower.toAlgHom F K E)) y := by
+      --   rw [<-h]
+      --   exact
+      --     Eq.symm
+      --       (AlgEquiv.apply_symm_apply
+      --         ((IntermediateField.adjoin F (Set.range s)).equivMap (IsScalarTower.toAlgHom F K E))
+      --         x)
+      -- rw [this]
+      -- rfl
+    )
+    letI scalar_tower : IsScalarTower (IntermediateField.restrictScalars F
+        (IntermediateField.adjoin ((IntermediateField.adjoin F (Set.range s))) (Set.range t))) (IntermediateField.adjoin K (Set.range t)) E := by
+      apply IsScalarTower.of_algebraMap_eq
+      exact fun _ => rfl
+    apply Algebra.IsAlgebraic.trans (L := (IntermediateField.adjoin K (Set.range t))) (L_alg := ?_)
+    apply Algebra.IsAlgebraic.of_ringHom_of_comp_eq (f := (IntermediateField.restrictScalars_algEquiv (K := F)).symm) (g := RingHom.id _)
+    -- remaining goals are boring
+    · exact AlgEquiv.surjective IntermediateField.restrictScalars_algEquiv.symm
+    · exact fun ⦃a₁ a₂⦄ a ↦ a
+    · ext x
+      simp
+      generalize h : IntermediateField.restrictScalars_algEquiv.symm x = y
+      have : x = IntermediateField.restrictScalars_algEquiv y := by
+        rw [<-h]
+        exact Eq.symm (AlgEquiv.apply_symm_apply IntermediateField.restrictScalars_algEquiv x)
+      rw [this]
+      rfl
+    · ext x
+      simp
+      generalize h : ((IntermediateField.adjoin F (Set.range s)).equivMap (IsScalarTower.toAlgHom F K E)).symm x = y
+      have : x = ((IntermediateField.adjoin F (Set.range s)).equivMap (IsScalarTower.toAlgHom F K E)) y := by
+        rw [<-h]
+        exact
+          Eq.symm
+            (AlgEquiv.apply_symm_apply
+              ((IntermediateField.adjoin F (Set.range s)).equivMap (IsScalarTower.toAlgHom F K E))
+              x)
+      rw [this]
+      rfl
