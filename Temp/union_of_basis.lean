@@ -9,21 +9,21 @@ theorem MvPolynomial.iterToSum_C (R S₁ S₂ : Type*) [CommSemiring R] (p : MvP
   (MvPolynomial.iterToSum R S₁ S₂ (MvPolynomial.C p)) = MvPolynomial.rename (Sum.inr) p := by
     apply MvPolynomial.induction_on p <;> aesop
 
-theorem Finset.prod_sum_type {A B C : Type*} [DecidableEq A] [DecidableEq B] [CommMonoid C] {s: Finset (A ⊕ B)} {f : (A ⊕ B) -> C} :
-  s.prod f =
-    (s.toLeft.prod (f ∘ Sum.inl)) * (s.toRight.prod (f ∘ Sum.inr)) := by
-      apply Finset.induction (
-        p := fun s => s.prod f = (s.toLeft.prod (f ∘ Sum.inl)) * (s.toRight.prod (f ∘ Sum.inr))
-      )
-      · simp
-        have : (∅: Finset (A ⊕ B)).toLeft = ∅ := by ext x; simp
-        have : (∅: Finset (A ⊕ B)).toRight = ∅ := by ext x; simp
-        aesop
-      · intro a s has ih
-        simp [has]
-        match a with
-        | Sum.inl a1 => simp [has, ih]; group
-        | Sum.inr b1 => simp [has, ih]; group; apply congr; rw [mul_comm]; rfl
+-- theorem Finset.prod_sum_type {A B C : Type*} [DecidableEq A] [DecidableEq B] [CommMonoid C] {s: Finset (A ⊕ B)} {f : (A ⊕ B) -> C} :
+--   s.prod f =
+--     (s.toLeft.prod (f ∘ Sum.inl)) * (s.toRight.prod (f ∘ Sum.inr)) := by
+--       apply Finset.induction (
+--         p := fun s => s.prod f = (s.toLeft.prod (f ∘ Sum.inl)) * (s.toRight.prod (f ∘ Sum.inr))
+--       )
+--       · simp
+--         have : (∅: Finset (A ⊕ B)).toLeft = ∅ := by ext x; simp
+--         have : (∅: Finset (A ⊕ B)).toRight = ∅ := by ext x; simp
+--         aesop
+--       · intro a s has ih
+--         simp [has]
+--         match a with
+--         | Sum.inl a1 => simp [has, ih]; group
+--         | Sum.inr b1 => simp [has, ih]; group; apply congr; rw [mul_comm]; rfl
 
 theorem AlgebraicIndependent.transcendental_extends {R A : Type*} [CommRing R] [CommRing A] [Algebra R A]
   (x : Set A) {s : Set A}
