@@ -51,11 +51,7 @@ lemma DihedralGroup.conj_classes_r_eq {k : ℕ} (i j : ZMod (2 * k + 1))
   match c with
   | DihedralGroup.r s =>
     simp at hc
-    apply_fun (fun x => x * (DihedralGroup.r s)) at hc
-    group at hc
-    simp at hc
-    simp_rw [add_comm] at hc
-    aesop
+    exact hc
   | DihedralGroup.sr s =>
     simp at hc
     apply_fun (fun x => x.val) at hc
@@ -169,9 +165,6 @@ noncomputable def conjugacy_classes_of_D_2k_plus_1 (k : ℕ) [NeZero k] : ConjCl
         let ⟨c, hc⟩ := h
         match c with
         | DihedralGroup.r j =>
-          simp at hc
-          apply_fun (fun x => x * (DihedralGroup.r j)) at hc
-          group at hc
           simp at hc
         | DihedralGroup.sr j =>
           simp at hc
